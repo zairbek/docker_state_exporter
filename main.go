@@ -184,21 +184,21 @@ func init() {
 	normalLogger = log.With(normalLogger, "severity", "info")
 	errorLogger = log.With(errorLogger, "timestamp", log.DefaultTimestampUTC)
 	errorLogger = log.With(errorLogger, "severity", "error")
-	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 }
 
 func main() {
 	flag.Parse()
 
-	client, err := client.NewEnvClient()
+	dockerClient, err := client.NewEnvClient()
 	errCheck(err)
-	defer client.Close()
+	defer dockerClient.Close()
 
-	_, err = client.Ping(context.Background())
+	_, err = dockerClient.Ping(context.Background())
 	errCheck(err)
 
-	prometheus.MustRegister(&dockerHealthCollector{
-		containerClient: client,
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(&dockerHealthCollector{
+		containerClient: dockerClient,
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -209,9 +209,13 @@ func main() {
 		fmt.Fprintf(w, "up")
 	})
 
-	http.Handle("/metrics", promhttp.HandlerFor(
-		prometheus.DefaultGatherer,
-		promhttp.HandlerOpts{ErrorLog: &loggerWrapper{Logger: &errorLogger}, EnableOpenMetrics: true}))
+	http.Handle(
+		"/metrics",
+		promhttp.HandlerFor(
+			registry,
+			promhttp.HandlerOpts{ErrorLog: &loggerWrapper{Logger: &errorLogger}, EnableOpenMetrics: true},
+		),
+	)
 
 	normalLogger.Log("message", "Server listening...", "address", address)
 
