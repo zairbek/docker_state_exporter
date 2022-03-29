@@ -1,5 +1,7 @@
 # Docker State Exporter
 
+⚠️ This is a fork of https://github.com/karugaru/docker_state_exporter with downgraded **Docker SDK for API version 1.40**.
+
 Exporter for docker container state
 
 Prometheus exporter for docker container state, written in Go.
@@ -21,7 +23,7 @@ For Docker run.
 sudo docker run -d \
   -v "/var/run/docker.sock:/var/run/docker.sock" \
   -p 8080:8080 \
-  karugaru/docker_state_exporter \
+  1001fonts/docker_state_exporter \
   -listen-address=:8080
 ```
 
@@ -33,7 +35,7 @@ version: '3.8'
 
 services:
   docker_state_exporter:
-    image: karugaru/docker_state_exporter
+    image: 1001fonts/docker_state_exporter
     volumes:
       - type: bind
         source: /var/run/docker.sock
@@ -55,10 +57,6 @@ This exporter will export the following metrics.
 
 These metrics will be the same as the results of docker inspect.
 
-This exporter also exports the standard
-[Go Collector](https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#NewGoCollector)
-and [Process Collector](https://pkg.go.dev/github.com/prometheus/client_golang/prometheus#NewProcessCollector).
-
 ## Caution
 
 This exporter will do a docker inspect every time prometheus pulls.\
@@ -74,7 +72,7 @@ I have not tested it in any other environment.
 ### Build
 
 ```bash
-git clone https://github.com/karugaru/docker_state_exporter
+git clone https://github.com/1001fonts/docker_state_exporter
 cd docker_state_exporter
 sudo docker build -t docker_state_exporter_test .
 ```
