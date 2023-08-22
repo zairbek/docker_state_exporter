@@ -1,5 +1,7 @@
 # Docker State Exporter
 
+⚠️ This is a fork of https://github.com/1001fonts/docker_state_exporter with docker service states `container_state_service_status`
+
 ⚠️ This is a fork of https://github.com/karugaru/docker_state_exporter with downgraded **Docker SDK for API version 1.40**.
 
 Exporter for docker container state

@@ -26,10 +26,18 @@ const (
 	cachePeriod = 1 * time.Second
 )
 
+type ServiceBag struct {
+	id         string
+	name       string
+	replicas   uint64
+	replicated float64
+}
+
 type dockerHealthCollector struct {
 	mu                 sync.Mutex
 	containerClient    *client.Client
 	containerInfoCache []types.ContainerJSON
+	serviceInfoCache   []ServiceBag
 	lastseen           time.Time
 }
 
@@ -62,6 +70,9 @@ var (
 	restartcountDesc = descSource{
 		"container_restartcount",
 		"Number of times the container has been restarted"}
+	serviceStatus = descSource{
+		namespace + "service_status",
+		"Service status."}
 )
 
 func (c *dockerHealthCollector) Describe(ch chan<- *prometheus.Desc) {
@@ -71,6 +82,7 @@ func (c *dockerHealthCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- startedatDesc.Desc(nil)
 	ch <- finishedatDesc.Desc(nil)
 	ch <- restartcountDesc.Desc(nil)
+	ch <- serviceStatus.Desc(nil)
 }
 
 func (c *dockerHealthCollector) Collect(ch chan<- prometheus.Metric) {
@@ -131,6 +143,14 @@ func (c *dockerHealthCollector) collectMetrics(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(finishedatDesc.Desc(labels), prometheus.GaugeValue, float64(finishedat.Unix()))
 		ch <- prometheus.MustNewConstMetric(restartcountDesc.Desc(labels), prometheus.GaugeValue, float64(info.RestartCount))
 	}
+	var serviceLabels = prometheus.Labels{}
+
+	for _, info := range c.serviceInfoCache {
+		serviceLabels["id"] = info.id
+		serviceLabels["name"] = info.name
+		serviceLabels["replicas"] = fmt.Sprint(info.replicas)
+		ch <- prometheus.MustNewConstMetric(serviceStatus.Desc(serviceLabels), prometheus.GaugeValue, info.replicated)
+	}
 }
 
 func (c *dockerHealthCollector) collectContainer() {
@@ -150,6 +170,27 @@ func (c *dockerHealthCollector) collectContainer() {
 		if info.State.Health == nil {
 			info.State.Health = &types.Health{Status: "none"}
 		}
+	}
+
+	services, err := c.containerClient.ServiceList(context.Background(), types.ServiceListOptions{})
+	errCheck(err)
+	c.serviceInfoCache = []ServiceBag{}
+
+	for _, service := range services {
+		var replicatedCounter float64
+		for _, container := range containers {
+			for key, label := range container.Labels {
+				if key == "com.docker.swarm.service.id" && label == service.ID {
+					replicatedCounter += 1
+				}
+			}
+		}
+		c.serviceInfoCache = append(c.serviceInfoCache, ServiceBag{
+			id:         service.ID,
+			name:       service.Spec.Name,
+			replicas:   *service.Spec.Mode.Replicated.Replicas,
+			replicated: replicatedCounter,
+		})
 	}
 }
 
