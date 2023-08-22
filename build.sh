@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 architecture=$(arch)
-image=1001fonts/docker_state_exporter:latest
+image=zairnur/docker_state_exporter:latest
 
 if [ "$architecture" = "arm64" ] || [ "$CI" = true ]; then
     docker buildx build \
